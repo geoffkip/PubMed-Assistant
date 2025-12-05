@@ -1,8 +1,48 @@
 import streamlit as st
 from Bio import Entrez
+import google.generativeai as genai
+import os
 
 # Ideally, set your email here or via environment variable to be a good citizen
 Entrez.email = "your_email@example.com" 
+
+def expand_query(query):
+    """
+    Uses Gemini to expand the search query with synonyms and related terms.
+    Returns a boolean search string for PubMed.
+    """
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        return query
+    
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel('gemini-2.5-flash')
+    
+    prompt = f"""You are a helpful medical research assistant. 
+    Generate a boolean search query for PubMed that includes the original term and 2-3 scientific synonyms or related terms. 
+    
+    Original Term: "{query}"
+    
+    Rules:
+    1. Use OR to combine synonyms.
+    2. Use AND if the original query has multiple distinct concepts.
+    3. Return ONLY the query string. Do not add explanations or quotes.
+    
+    Example Input: heart attack
+    Example Output: (heart attack OR myocardial infarction OR cardiac arrest)
+    
+    Output:"""
+    
+    try:
+        response = model.generate_content(prompt)
+        expanded_query = response.text.strip()
+        # Basic validation to ensure it's not empty or an error message
+        if len(expanded_query) > len(query):
+            return expanded_query
+        return query
+    except Exception as e:
+        print(f"Error expanding query: {e}")
+        return query 
 
 def search_pubmed(query, max_results=10):
     """
@@ -48,12 +88,18 @@ def fetch_details(id_list):
                         authors.append(f"{author['LastName']} {author['ForeName']}")
                 author_str = ", ".join(authors)
 
+                # Extract Publication Type
+                pub_type_list = medline.get('PublicationTypeList', [])
+                pub_types = [pt for pt in pub_type_list]
+                pub_type_str = ", ".join(pub_types) if pub_types else "Journal Article"
+
                 articles.append({
                     'pubmed_id': article['MedlineCitation']['PMID'],
                     'title': title,
                     'abstract': abstract,
                     'year': year,
                     'authors': author_str,
+                    'publication_type': pub_type_str,
                     'url': f"https://pubmed.ncbi.nlm.nih.gov/{article['MedlineCitation']['PMID']}/"
                 })
             except Exception as e:

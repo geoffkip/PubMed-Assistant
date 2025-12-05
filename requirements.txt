@@ -7,3 +7,5 @@ python-dotenv
 tantivy
 pyarrow
 sentence-transformers
+streamlit-agraph
+gTTS

@@ -19,6 +19,33 @@ A Streamlit application that allows users to search PubMed for medical articles,
 
 ## Approach
 
+### Architecture
+
+```mermaid
+graph TD
+    User[User / Streamlit UI]
+    subgraph "Data Acquisition"
+        PubMed[PubMed API]
+    end
+    subgraph "Storage & Retrieval"
+        Embed[Sentence Transformer]
+        LDB[(LanceDB Vector DB)]
+    end
+    subgraph "Generation"
+        Gemini[Gemini 1.5 Flash]
+    end
+
+    User -- "1. Search Query" --> PubMed
+    PubMed -- "2. Articles" --> User
+    User -- "3. Ingest Selected" --> Embed
+    Embed -- "4. Vectors + Text" --> LDB
+    User -- "5. Ask Question" --> Embed
+    Embed -- "6. Search Query" --> LDB
+    LDB -- "7. Relevant Context" --> Gemini
+    User -- "Question" --> Gemini
+    Gemini -- "8. Answer" --> User
+```
+
 ### 1. Data Acquisition (PubMed)
 The app uses `Biopython` (`Bio.Entrez`) to interact with the PubMed API.
 - **Search**: Retrieves PubMed IDs (PMIDs) based on the user's query.

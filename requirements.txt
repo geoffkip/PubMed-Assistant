@@ -1,0 +1,9 @@
+streamlit
+biopython
+lancedb
+google-generativeai
+pandas
+python-dotenv
+tantivy
+pyarrow
+sentence-transformers

@@ -4,11 +4,11 @@ import pandas as pd
 import os
 import streamlit as st
 from lancedb.pydantic import LanceModel, Vector
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer, CrossEncoder
 
 # Define the schema for LanceDB
 class Article(LanceModel):
-    vector: Vector(384) # Dimension for all-MiniLM-L6-v2
+    vector: Vector(768) # Dimension for all-mpnet-base-v2
     text: str
     title: str
     url: str
@@ -21,11 +21,14 @@ class RAGEngine:
         self.api_key = api_key
         genai.configure(api_key=self.api_key)
         self.db = lancedb.connect(db_path)
-        self.table_name = "pubmed_articles_free_embed" # Changed table name to avoid conflict/schema error
+        self.table_name = "pubmed_articles_mpnet" # Updated table for new embeddings
         
-        # Initialize embedding model
+        # Initialize embedding model (Bi-Encoder)
         # This will download the model the first time it runs
-        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+        self.embedding_model = SentenceTransformer('all-mpnet-base-v2')
+        
+        # Initialize reranker (Cross-Encoder)
+        self.reranker = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
 
     def get_embedding(self, text):
         return self.embedding_model.encode(text)
@@ -65,21 +68,31 @@ class RAGEngine:
                 return False
         return False
 
-    def query_rag(self, query, k=3):
+    def query_rag(self, query, k=5):
         """
         Retrieve relevant articles and generate an answer.
+        Retrieves top 10 candidates, reranks them, and uses top k (default 5).
         """
         # Embed query using local model
         query_embedding = self.get_embedding(query)
 
         try:
             tbl = self.db.open_table(self.table_name)
-            results = tbl.search(query_embedding).limit(k).to_pandas()
+            # Retrieve more candidates for reranking
+            results = tbl.search(query_embedding).limit(10).to_pandas()
         except Exception as e:
             return f"Error searching database: {e}", []
 
         if results.empty:
             return "No relevant articles found in the knowledge base.", []
+
+        # Reranking
+        cross_inp = [[query, row['text']] for index, row in results.iterrows()]
+        cross_scores = self.reranker.predict(cross_inp)
+        results['cross_score'] = cross_scores
+        
+        # Sort by cross_score and take top k
+        results = results.sort_values(by='cross_score', ascending=False).head(k)
 
         # Construct context
         context = ""
@@ -88,7 +101,7 @@ class RAGEngine:
             context += f"Article {index+1}:\nTitle: {row['title']}\nContent: {row['text']}\n\n"
             references.append(row)
 
-        # Generate answer using Gemini (still needs API key for generation)
+        # Generate answer using Gemini
         model = genai.GenerativeModel('gemini-2.5-flash')
         prompt = f"""You are a helpful medical research assistant. Use the following context to answer the user's question.
         If the answer is not in the context, say you don't know.

@@ -30,6 +30,7 @@ graph TD
     subgraph "Storage & Retrieval"
         Embed[Sentence Transformer]
         LDB[(LanceDB Vector DB)]
+        Rerank[Cross-Encoder Reranker]
     end
     subgraph "Generation"
         Gemini[Gemini 2.5 Flash]
@@ -40,10 +41,11 @@ graph TD
     User -- "3. Ingest Selected" --> Embed
     Embed -- "4. Vectors + Text" --> LDB
     User -- "5. Ask Question" --> Embed
-    Embed -- "6. Search Query" --> LDB
-    LDB -- "7. Relevant Context" --> Gemini
+    Embed -- "6. Retrieve Top 10" --> LDB
+    LDB -- "7. Candidates" --> Rerank
+    Rerank -- "8. Top 5 Relevant" --> Gemini
     User -- "Question" --> Gemini
-    Gemini -- "8. Answer" --> User
+    Gemini -- "9. Answer" --> User
 ```
 
 ### 1. Data Acquisition (PubMed)
@@ -53,14 +55,15 @@ The app uses `Biopython` (`Bio.Entrez`) to interact with the PubMed API.
 
 ### 2. Vector Database (LanceDB)
 We use `LanceDB` as a lightweight, serverless vector database.
-- **Embedding**: The `all-MiniLM-L6-v2` model from `sentence-transformers` is used to create vector embeddings of the article content (Title + Abstract).
+- **Embedding**: The **`all-mpnet-base-v2`** model (768 dimensions) is used to create high-quality vector embeddings of the article content.
 - **Storage**: Articles and their embeddings are stored locally in `data/lancedb`.
 
-### 3. RAG Engine
-The `RAGEngine` class handles the core logic:
-- **Ingestion**: Embeds text and inserts it into the LanceDB table.
-- **Retrieval**: semantic search finds the most relevant articles for a user's question.
-- **Generation**: The retrieved context is passed to Google's `gemini-2.5-flash` model to generate a concise and accurate answer.
+### 3. Advanced RAG Engine
+The `RAGEngine` class implements an advanced retrieval pipeline:
+- **Ingestion**: Embeds text using the MPNet model and inserts it into LanceDB.
+- **Retrieval**: Performs semantic search to find the top 10 candidate articles.
+- **Reranking**: Uses a **Cross-Encoder** (`ms-marco-MiniLM-L-6-v2`) to re-score candidates based on their relevance to the specific question, selecting the top 5.
+- **Generation**: The highly relevant context is passed to Google's **`gemini-2.5-flash`** model to generate a precise answer.
 
 ## Installation
 

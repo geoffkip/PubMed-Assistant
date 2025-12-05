@@ -29,20 +29,20 @@ A comprehensive research assistant that allows users to search PubMed, ingest ar
 
 ```mermaid
 graph TD
-    User[User / Streamlit UI]
+    User["User / Streamlit UI"]
     subgraph "Data Acquisition"
-        PubMed[PubMed API]
-        Gemini_Exp[Gemini (Query Expansion)]
+        PubMed["PubMed API"]
+        Gemini_Exp["Gemini (Query Expansion)"]
     end
     subgraph "Storage & Retrieval"
-        Embed[Sentence Transformer]
-        LDB[(LanceDB Vector DB)]
-        Rerank[Cross-Encoder Reranker]
-        Graph[Knowledge Graph Builder]
+        Embed["Sentence Transformer"]
+        LDB[("LanceDB Vector DB")]
+        Rerank["Cross-Encoder Reranker"]
+        Graph["Knowledge Graph Builder"]
     end
     subgraph "Generation & Analysis"
-        Gemini[Gemini 2.5 Flash]
-        TTS[gTTS (Podcast)]
+        Gemini["Gemini 2.5 Flash"]
+        TTS["gTTS (Podcast)"]
     end
 
     User -- "1. Query" --> Gemini_Exp

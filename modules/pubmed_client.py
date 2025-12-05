@@ -19,17 +19,22 @@ def expand_query(query):
     model = genai.GenerativeModel('gemini-2.5-flash')
     
     prompt = f"""You are a helpful medical research assistant. 
-    Generate a boolean search query for PubMed that includes the original term and 2-3 scientific synonyms or related terms. 
+    Generate a boolean search query for PubMed that improves the user's search.
     
     Original Term: "{query}"
     
     Rules:
-    1. Use OR to combine synonyms.
-    2. Use AND if the original query has multiple distinct concepts.
-    3. Return ONLY the query string. Do not add explanations or quotes.
+    1. PRESERVE the user's core phrases. Do not split specific medical terms.
+    2. Add synonyms ONLY for the *core medical condition* or *drug* (e.g., "Heart Attack" -> "Myocardial Infarction").
+    3. DO NOT expand generic terms like "treatment", "therapy", "diagnosis", "options", "strategies". Leave them as is or remove them if redundant.
+    4. Use OR for synonyms, AND for distinct concepts.
+    5. Return ONLY the query string.
     
-    Example Input: heart attack
-    Example Output: (heart attack OR myocardial infarction OR cardiac arrest)
+    Example Input: heart attack treatment
+    Example Output: ("heart attack" OR "myocardial infarction") AND treatment
+    
+    Example Input: Ulcerative Colitis Advanced Therapy treatments
+    Example Output: ("Ulcerative Colitis" OR UC) AND "Advanced Therapy" AND treatments
     
     Output:"""
     

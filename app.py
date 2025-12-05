@@ -67,19 +67,23 @@ def main():
         col1, col2 = st.columns([3, 1])
         with col1:
             query = st.text_input("Enter search query (e.g., 'immunotherapy for lung cancer')")
+            use_expansion = st.checkbox("Enable Smart Query Expansion", value=True, help="Automatically adds synonyms to your search.")
         with col2:
-            max_results = st.slider("Max Results", 5, 20, 10)
+            max_results = st.slider("Max Results", 5, 100, 10)
         
         search_btn = st.button("Search PubMed")
         
         if search_btn and query:
-            with st.spinner("Expanding query..."):
-                expanded_query = expand_query(query)
-                if expanded_query != query:
-                    st.info(f"Expanded Query: **{expanded_query}**")
+            final_query = query
+            if use_expansion:
+                with st.spinner("Expanding query..."):
+                    expanded_query = expand_query(query)
+                    if expanded_query != query:
+                        st.info(f"Expanded Query: **{expanded_query}**")
+                        final_query = expanded_query
             
             with st.spinner(f"Searching PubMed for top {max_results} articles..."):
-                ids = search_pubmed(expanded_query, max_results=max_results)
+                ids = search_pubmed(final_query, max_results=max_results)
                 articles = fetch_details(ids)
                 if not articles:
                     st.warning("No articles found.")
@@ -102,6 +106,15 @@ def main():
                 )
 
             # Display Articles
+            
+            # Select All Logic
+            def toggle_select_all():
+                select_all = st.session_state.select_all
+                for i in range(len(st.session_state.articles)):
+                    st.session_state[f"select_{i}"] = select_all
+
+            st.checkbox("Select All", key="select_all", on_change=toggle_select_all)
+            
             selected_indices = []
             for i, article in enumerate(st.session_state.articles):
                 with st.expander(f"{article['title']} ({article['year']})"):
@@ -109,6 +122,11 @@ def main():
                     st.markdown(f"**Type:** {article.get('publication_type', 'Journal Article')}")
                     st.markdown(f"**Abstract:** {article['abstract']}")
                     st.markdown(f"[Read on PubMed]({article['url']})")
+                    
+                    # Ensure key exists in session state if not already
+                    if f"select_{i}" not in st.session_state:
+                        st.session_state[f"select_{i}"] = False
+                        
                     if st.checkbox("Select for Ingestion", key=f"select_{i}"):
                         selected_indices.append(i)
             

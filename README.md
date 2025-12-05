@@ -32,7 +32,7 @@ graph TD
         LDB[(LanceDB Vector DB)]
     end
     subgraph "Generation"
-        Gemini[Gemini 1.5 Flash]
+        Gemini[Gemini 2.5 Flash]
     end
 
     User -- "1. Search Query" --> PubMed

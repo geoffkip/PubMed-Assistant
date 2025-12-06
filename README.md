@@ -30,53 +30,44 @@ A powerful, AI-driven research assistant designed to supercharge medical literat
 
 The system uses a **Hybrid Search** approach, combining semantic understanding with keyword precision, followed by a re-ranking step for optimal relevance.
 
+## 🏗️ Architecture
+
+The system is built on three main workflows:
+
+### 1. Search & Ingestion Pipeline
+How articles are found and stored in the knowledge base.
+
 ```mermaid
 graph TD
-    subgraph User_Interface [User Interface]
-        UI[Streamlit App]
-        User((Researcher))
-    end
+    User((User)) -->|1. Search Topic| UI[Streamlit UI]
+    UI -->|2. Expand Query| Gemini[Gemini LLM]
+    UI -->|3. Fetch Articles| PubMed[PubMed API]
+    UI -->|4. Ingest Selected| Embedder[Embedding Model]
+    Embedder -->|5. Store Vectors| DB[(LanceDB)]
+    Gemini -.->|Generate Metadata| DB
+```
 
-    subgraph External_Services [External Services]
-        PubMed[PubMed API]
-        Gemini[Google Gemini 2.5 Flash]
-    end
+### 2. RAG Retrieval Flow
+How the system answers questions using the stored knowledge.
 
-    subgraph Core_Engine [Core Engine]
-        Expander[Query Expander]
-        Embedder[Sentence Transformer]
-        Reranker[Cross-Encoder Reranker]
-        TTS[Edge TTS]
-    end
+```mermaid
+graph TD
+    User((User)) -->|1. Ask Question| UI[Streamlit UI]
+    UI -->|2. Hybrid Search| DB[(LanceDB)]
+    DB -->|3. Raw Candidates| Reranker[Cross-Encoder]
+    Reranker -->|4. Top Context| Gemini[Gemini LLM]
+    Gemini -->|5. Answer| UI
+```
 
-    subgraph Storage [Local Storage]
-        LDB[(LanceDB Vector Store)]
-        FTS[Full-Text Index]
-    end
+### 3. Podcast Generation
+How the audio summaries are created.
 
-    %% Flows
-    User -->|1. Search Query| UI
-    UI -->|2. Expand Query| Expander
-    Expander <--> Gemini
-    Expander -->|3. Search| PubMed
-    PubMed -->|4. Articles| UI
-    
-    User -->|5. Ingest| UI
-    UI -->|6. Generate Metadata| Gemini
-    UI -->|7. Embed Text| Embedder
-    Embedder -->|8. Store Vectors| LDB
-    
-    User -->|9. Ask Question| UI
-    UI -->|10. Hybrid Search| LDB
-    LDB <--> FTS
-    LDB -->|11. Candidates| Reranker
-    Reranker -->|12. Top Context| Gemini
-    Gemini -->|13. Answer| UI
-    
-    User -->|14. Generate Podcast| UI
-    UI -->|15. Generate Script| Gemini
-    UI -->|16. Synthesize Audio| TTS
-    TTS -->|17. MP3 Audio| UI
+```mermaid
+graph LR
+    User((User)) -->|1. Select Articles| UI[Streamlit UI]
+    UI -->|2. Generate Script| Gemini[Gemini LLM]
+    Gemini -->|3. Script| TTS[Edge TTS]
+    TTS -->|4. Audio File| UI
 ```
 
 ### Technical Stack

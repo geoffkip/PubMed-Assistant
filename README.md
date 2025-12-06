@@ -31,26 +31,26 @@ A powerful, AI-driven research assistant designed to supercharge medical literat
 The system uses a **Hybrid Search** approach, combining semantic understanding with keyword precision, followed by a re-ranking step for optimal relevance.
 
 ```mermaid
-flowchart TD
-    subgraph User_Interface ["🖥️ User Interface"]
+graph TD
+    subgraph User_Interface [User Interface]
         UI[Streamlit App]
         User((Researcher))
     end
 
-    subgraph External_Services ["☁️ External Services"]
+    subgraph External_Services [External Services]
         PubMed[PubMed API]
         Gemini[Google Gemini 2.5 Flash]
     end
 
-    subgraph Core_Engine ["⚙️ Core Engine"]
+    subgraph Core_Engine [Core Engine]
         Expander[Query Expander]
-        Embedder[Sentence Transformer\n(all-mpnet-base-v2)]
-        Reranker[Cross-Encoder Reranker\n(ms-marco-MiniLM-L-6-v2)]
-        TTS[Edge TTS\n(Neural Voice)]
+        Embedder[Sentence Transformer]
+        Reranker[Cross-Encoder Reranker]
+        TTS[Edge TTS]
     end
 
-    subgraph Storage ["💾 Local Storage"]
-        LDB[(LanceDB\nVector Store)]
+    subgraph Storage [Local Storage]
+        LDB[(LanceDB Vector Store)]
         FTS[Full-Text Index]
     end
 
@@ -62,7 +62,7 @@ flowchart TD
     PubMed -->|4. Articles| UI
     
     User -->|5. Ingest| UI
-    UI -->|6. Generate Metadata\n(Summary, PICO)| Gemini
+    UI -->|6. Generate Metadata| Gemini
     UI -->|7. Embed Text| Embedder
     Embedder -->|8. Store Vectors| LDB
     

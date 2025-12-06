@@ -1,107 +1,143 @@
-# PubMed RAG Assistant
+# 🧬 PubMed RAG Assistant
 
-A comprehensive research assistant that allows users to search PubMed, ingest articles into a local vector database, and perform advanced analysis using Retrieval-Augmented Generation (RAG) powered by Google's Gemini model.
+![Python](https://img.shields.io/badge/Python-3.9%2B-blue?style=for-the-badge&logo=python)
+![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit)
+![Gemini](https://img.shields.io/badge/Google%20Gemini-8E75B2?style=for-the-badge&logo=google)
+![LanceDB](https://img.shields.io/badge/LanceDB-Vector%20Database-orange?style=for-the-badge)
 
-## Features
+A powerful, AI-driven research assistant designed to supercharge medical literature review. This application allows researchers to search PubMed, build a local knowledge base, and perform advanced analysis using Retrieval-Augmented Generation (RAG) powered by Google's Gemini 2.5 Flash model.
 
-### 🔍 Search & Ingest
-- **Smart Search**: Automatically expands queries with synonyms (e.g., "heart attack" -> "myocardial infarction") for better recall.
-- **Topic Clustering**: Categorizes search results by publication type (e.g., Clinical Trial, Review).
-- **Data Export**: Download search results as CSV.
+## 🌟 Key Features
+
+### 🔍 Intelligent Search & Ingestion
+*   **Smart Query Expansion**: Automatically enhances your search terms with medical synonyms (e.g., "heart attack" → "myocardial infarction") to ensure you never miss relevant papers.
+*   **Seamless Ingestion**: Download and index articles directly into a local vector database for permanent access.
+*   **Data Export**: Export your search results and knowledge base to CSV for external analysis.
 
 ### 🧠 Advanced RAG & Analysis
-- **Chat with Knowledge Base**: Ask natural language questions grounded in your ingested articles.
-- **Automatic Summarization**: Gemini generates a **one-sentence TL;DR** and **Category** for every article.
-- **PICO Analysis**: Automatically extracts **Population**, **Intervention**, **Comparison**, and **Outcome** from clinical abstracts.
-- **Podcast Mode**: Generates a 2-minute **Audio Summary** of your knowledge base using text-to-speech.
+*   **Context-Aware Chat**: Ask natural language questions. The system retrieves the most relevant excerpts from your ingested articles to provide grounded, accurate answers with citations.
+*   **Automated Insights**:
+    *   **TL;DR Summaries**: One-sentence summaries generated for every article.
+    *   **PICO Extraction**: Automatically extracts **P**opulation, **I**ntervention, **C**omparison, and **O**utcome from clinical abstracts.
+    *   **Categorization**: Auto-tags articles by type (e.g., Clinical Trial, Review, Case Study).
 
-### 🕸️ Discovery & Visualization
-- **Knowledge Graph**: Interactive network graph visualizing connections between articles and authors.
-- **More Like This**: Instantly find semantically similar papers with one click.
+### 🎙️ Audio & Visualization
+*   **AI Podcast Generator**: Turn your reading list into a listening experience. Generates a realistic, 2-minute "podcast" summary of your top articles using **Edge TTS** for natural-sounding voiceovers.
+*   **Interactive Knowledge Graph**: Visualize the network of research, connecting papers by shared authors to uncover collaboration patterns.
+*   **Semantic Discovery**: "More Like This" feature finds semantically similar papers instantly using vector embeddings.
 
-### ⚙️ Architecture
-- **Hybrid Search**: Combines **Vector Search** (Semantic) and **Keyword Search** (BM25) for optimal retrieval.
-- **Reranking**: Uses a Cross-Encoder to re-score top candidates for high precision.
-- **Models**:
-  - Embedding: `all-mpnet-base-v2` (768 dim)
-  - Reranking: `cross-encoder/ms-marco-MiniLM-L-6-v2`
-  - Generation: `gemini-2.5-flash`
+## 🏗️ Architecture
+
+The system uses a **Hybrid Search** approach, combining semantic understanding with keyword precision, followed by a re-ranking step for optimal relevance.
 
 ```mermaid
-graph TD
-    User["User / Streamlit UI"]
-    subgraph "Data Acquisition"
-        PubMed["PubMed API"]
-        Gemini_Exp["Gemini (Query Expansion)"]
-    end
-    subgraph "Storage & Retrieval"
-        Embed["Sentence Transformer"]
-        LDB[("LanceDB Vector DB")]
-        Rerank["Cross-Encoder Reranker"]
-        Graph["Knowledge Graph Builder"]
-    end
-    subgraph "Generation & Analysis"
-        Gemini["Gemini 2.5 Flash"]
-        TTS["gTTS (Podcast)"]
+flowchart TD
+    subgraph User_Interface ["🖥️ User Interface"]
+        UI[Streamlit App]
+        User((Researcher))
     end
 
-    User -- "1. Query" --> Gemini_Exp
-    Gemini_Exp -- "2. Expanded Query" --> PubMed
-    PubMed -- "3. Articles" --> User
-    User -- "4. Ingest" --> Gemini
-    Gemini -- "5. Metadata (Summary/PICO)" --> LDB
-    Embed -- "6. Vectors" --> LDB
-    User -- "7. Ask Question" --> Embed
-    Embed -- "8. Hybrid Retrieval" --> LDB
-    LDB -- "9. Candidates" --> Rerank
-    Rerank -- "10. Top Context" --> Gemini
-    Gemini -- "11. Answer" --> User
-    LDB -- "12. Graph Data" --> Graph
-    Graph --> User
-    LDB -- "13. Podcast Script" --> Gemini
-    Gemini --> TTS
-    TTS -- "14. Audio" --> User
+    subgraph External_Services ["☁️ External Services"]
+        PubMed[PubMed API]
+        Gemini[Google Gemini 2.5 Flash]
+    end
+
+    subgraph Core_Engine ["⚙️ Core Engine"]
+        Expander[Query Expander]
+        Embedder[Sentence Transformer\n(all-mpnet-base-v2)]
+        Reranker[Cross-Encoder Reranker\n(ms-marco-MiniLM-L-6-v2)]
+        TTS[Edge TTS\n(Neural Voice)]
+    end
+
+    subgraph Storage ["💾 Local Storage"]
+        LDB[(LanceDB\nVector Store)]
+        FTS[Full-Text Index]
+    end
+
+    %% Flows
+    User -->|1. Search Query| UI
+    UI -->|2. Expand Query| Expander
+    Expander <--> Gemini
+    Expander -->|3. Search| PubMed
+    PubMed -->|4. Articles| UI
+    
+    User -->|5. Ingest| UI
+    UI -->|6. Generate Metadata\n(Summary, PICO)| Gemini
+    UI -->|7. Embed Text| Embedder
+    Embedder -->|8. Store Vectors| LDB
+    
+    User -->|9. Ask Question| UI
+    UI -->|10. Hybrid Search| LDB
+    LDB <--> FTS
+    LDB -->|11. Candidates| Reranker
+    Reranker -->|12. Top Context| Gemini
+    Gemini -->|13. Answer| UI
+    
+    User -->|14. Generate Podcast| UI
+    UI -->|15. Generate Script| Gemini
+    UI -->|16. Synthesize Audio| TTS
+    TTS -->|17. MP3 Audio| UI
 ```
 
-## Installation
+### Technical Stack
+*   **LLM**: Google Gemini 2.5 Flash
+*   **Vector Database**: LanceDB
+*   **Embeddings**: `all-mpnet-base-v2` (768 dimensions)
+*   **Reranker**: `cross-encoder/ms-marco-MiniLM-L-6-v2`
+*   **Text-to-Speech**: Edge TTS (Microsoft Edge's Neural Voices)
+*   **Frontend**: Streamlit
 
-1. **Clone the repository**:
-   ```bash
-   git clone <repository-url>
-   cd pubmed_rag_app
-   ```
+## 🚀 Getting Started
 
-2. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+### Prerequisites
+*   Python 3.9 or higher
+*   A Google Cloud API Key (for Gemini)
 
-3. **Set up Environment Variables**:
-   Create a `.env` file in the root directory and add your Google API Key:
-   ```env
-   GOOGLE_API_KEY=your_api_key_here
-   ```
+### Installation
 
-## Usage
+1.  **Clone the repository**
+    ```bash
+    git clone <repository-url>
+    cd pubmed_rag_app
+    ```
 
-1. **Run the Streamlit app**:
-   ```bash
-   streamlit run app.py
-   ```
+2.  **Install dependencies**
+    ```bash
+    pip install -r requirements.txt
+    ```
+    *Note: You may need to install `edge-tts` separately if it's not in requirements yet.*
 
-2. **Navigate**:
-   - **Search & Ingest**: Build your knowledge base.
-   - **Chat**: 
-     - **Chat Tab**: Ask questions, view PICO analysis, and generate Podcasts.
-     - **Knowledge Graph Tab**: Explore connections visually.
+3.  **Configure API Key**
+    Create a `.env` file in the root directory:
+    ```env
+    GOOGLE_API_KEY=your_actual_api_key_here
+    ```
 
-## Requirements
+### Running the App
 
-- Python 3.9+
-- Streamlit
-- LanceDB
-- Google Generative AI SDK
-- Biopython
-- Sentence Transformers
-- Streamlit Agraph
-- gTTS
+```bash
+streamlit run app.py
+```
+
+Once running, navigate to **http://localhost:8501** in your browser.
+
+## 📖 Usage Guide
+
+1.  **Search & Ingest Tab**:
+    *   Enter a medical topic (e.g., "immunotherapy for lung cancer").
+    *   Review the search results.
+    *   Select articles of interest and click **"Ingest Selected Articles"**. This saves them to your local knowledge base.
+
+2.  **Chat Tab**:
+    *   **Chat**: Ask questions like "What are the main side effects mentioned in the trials?" or "Compare the outcomes of Drug A vs Drug B."
+    *   **Podcast**: Select articles and click "Generate Podcast Summary" to hear an audio overview.
+    *   **Explore Articles**: Browse your database, filter by keywords, and view PICO analyses.
+    *   **Knowledge Graph**: Switch to the graph view to see how authors and papers are connected.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+[MIT License](LICENSE)

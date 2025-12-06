@@ -4,7 +4,7 @@ import pandas as pd
 from dotenv import load_dotenv
 from modules.pubmed_client import search_pubmed, fetch_details, expand_query
 from modules.rag_engine import RAGEngine
-from modules.utils import init_session_state, build_knowledge_graph
+from modules.utils import init_session_state, build_knowledge_graph, generate_podcast_script, create_audio
 from streamlit_agraph import agraph, Node, Edge, Config
 
 # Load environment variables
@@ -39,7 +39,7 @@ st.markdown("""
 def main():
     init_session_state()
 
-    st.title("🧬 PubMed RAG Assistant")
+    st.title("🧬 PubMed Assistant")
 
     # Sidebar for Navigation
     with st.sidebar:
@@ -158,17 +158,46 @@ def main():
                     try:
                         tbl = st.session_state.rag_engine.db.open_table(st.session_state.rag_engine.table_name)
                         df_kb = tbl.to_pandas()
+                        # Deduplicate to prevent errors
+                        df_kb = df_kb.drop_duplicates(subset=['pubmed_id'])
                         if not df_kb.empty:
                             # Podcast Generation
-                            if st.button("🎙️ Generate Podcast Summary"):
+                            st.subheader("🎙️ Podcast Generator")
+                            
+                            # Article Selection
+                            article_titles = df_kb['title'].tolist()
+                            selected_titles = st.multiselect(
+                                "Select articles for the podcast (leave empty for top 3):",
+                                options=article_titles
+                            )
+
+                            if st.button("Generate Podcast Summary"):
                                 with st.spinner("Writing script and generating audio..."):
-                                    articles_list = df_kb.to_dict('records')
+                                    if selected_titles:
+                                        # Filter dataframe for selected titles
+                                        selected_articles_df = df_kb[df_kb['title'].isin(selected_titles)]
+                                        articles_list = selected_articles_df.to_dict('records')
+                                    else:
+                                        # Default to top 3
+                                        articles_list = df_kb.head(3).to_dict('records')
+
                                     script = generate_podcast_script(articles_list, api_key)
-                                    if script:
+                                    
+                                    if script and "Error generating script" in script:
+                                        st.error(script)
+                                    elif script:
+                                        with st.expander("View Generated Script"):
+                                            st.write(script)
+                                            
                                         audio_file = create_audio(script)
                                         if audio_file:
-                                            st.audio(audio_file)
+                                            st.session_state.podcast_audio = audio_file
                                             st.success("Podcast generated!")
+                                        else:
+                                            st.error("Failed to generate audio file. Check console logs for details.")
+                            
+                            if "podcast_audio" in st.session_state and st.session_state.podcast_audio:
+                                st.audio(st.session_state.podcast_audio)
                             
                             st.dataframe(df_kb[['title', 'year', 'category', 'summary']])
                             
@@ -181,8 +210,44 @@ def main():
                                 mime='text/csv',
                             )
                             
+                            # Display Similar Articles Dialog
+                            @st.dialog("Similar Articles")
+                            def show_similar_articles(similar_articles):
+                                st.markdown(f"Found {len(similar_articles)} similar articles:")
+                                for sim in similar_articles:
+                                    with st.expander(f"{sim['title']} ({sim['year']})"):
+                                        # Handle missing abstract in DB records
+                                        abstract = sim.get('abstract')
+                                        if not abstract:
+                                            # Fallback to text field (stripping Title prefix if possible)
+                                            text = sim.get('text', '')
+                                            if "Abstract: " in text:
+                                                abstract = text.split("Abstract: ", 1)[1]
+                                            else:
+                                                abstract = text
+                                        
+                                        st.markdown(f"**Abstract:** {abstract}")
+                                        st.markdown(f"[Read on PubMed]({sim['url']})")
+
                             st.markdown("### Explore Articles")
-                            for index, row in df_kb.iterrows():
+                            
+                            # Search Filter
+                            search_term = st.text_input("🔍 Filter Articles", placeholder="Search by title or summary...")
+                            
+                            if search_term:
+                                df_display = df_kb[
+                                    df_kb['title'].str.contains(search_term, case=False, na=False) | 
+                                    df_kb['summary'].str.contains(search_term, case=False, na=False)
+                                ]
+                            else:
+                                df_display = df_kb
+                            
+                            # Limit to max 20 articles
+                            df_display = df_display.head(20)
+                                
+                            st.caption(f"Showing {len(df_display)} of {len(df_kb)} articles")
+
+                            for index, row in df_display.iterrows():
                                 col1, col2 = st.columns([4, 1])
                                 with col1:
                                     st.markdown(f"**{row['title']}**")
@@ -190,28 +255,17 @@ def main():
                                         with st.expander("🔬 PICO Analysis"):
                                             st.text(row['pico'])
                                 with col2:
-                                    if st.button("More Like This", key=f"sim_{row['pubmed_id']}"):
+                                    if st.button("More Like This", key=f"sim_{row['pubmed_id']}_{index}"):
                                         similar = st.session_state.rag_engine.find_similar_articles(row['pubmed_id'])
                                         if similar:
-                                            st.session_state.similar_articles = similar
-                                            st.toast(f"Found {len(similar)} similar articles!", icon="🔍")
+                                            show_similar_articles(similar)
                                         else:
                                             st.toast("No similar articles found.", icon="⚠️")
 
-                            # Display Similar Articles if found
-                            if "similar_articles" in st.session_state and st.session_state.similar_articles:
-                                st.markdown("#### 🔍 Similar Articles Found")
-                                for sim in st.session_state.similar_articles:
-                                    with st.expander(f"{sim['title']} ({sim['year']})"):
-                                        st.markdown(f"**Abstract:** {sim['abstract']}")
-                                        st.markdown(f"[Read on PubMed]({sim['url']})")
-                                if st.button("Clear Similar Results"):
-                                    del st.session_state.similar_articles
-                                    st.rerun()
-
                         else:
                             st.info("Knowledge base is empty.")
-                    except:
+                    except Exception as e:
+                        st.error(f"An error occurred: {e}")
                         st.info("Knowledge base not initialized yet.")
 
             st.markdown("---")
